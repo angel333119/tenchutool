@@ -14,7 +14,13 @@ namespace Tenchu_tool
 {
     public partial class Form1 : Form
     {
-        
+
+        public Form1()
+        {
+            InitializeComponent();
+            //TIMT timtForm = new TIMT();
+            //timtForm.Show();
+        }
 
         #region Tradução dos botões
 
@@ -62,11 +68,6 @@ namespace Tenchu_tool
         };
 
         private bool _isPortuguese = true;
-
-        public Form1()
-        {
-            InitializeComponent();
-        }
 
         private void Form1_Load(object sender, EventArgs e)
         {
@@ -1400,18 +1401,21 @@ namespace Tenchu_tool
                         }
                     }
                 }
-            }
-            MessageBox.Show("Terminado", "AVISO");
+                MessageBox.Show("Terminado", "AVISO");
+            }            
         }
 
         #endregion
 
         #region Tenchu Shadow Assassins
 
-        #region Extrator Tenchu Shadow Assassins
+        #region Extrator DAT Tenchu Shadow Assassins
 
         private void button12_Click(object sender, EventArgs e)
         {
+
+            MessageBox.Show("Ainda não implementado");
+            /*
             //Extrator arquivo DAT
             OpenFileDialog openFileDialog1 = new OpenFileDialog();
             openFileDialog1.Filter = "Arquivo DAT|*.DAT|Todos os arquivos (*.*)|*.*";
@@ -1441,7 +1445,7 @@ namespace Tenchu_tool
 
                             br.BaseStream.Seek(offset, SeekOrigin.Begin);
 
-
+                            MessageBox.Show("Ainda não implementado");
 
 
 
@@ -1457,7 +1461,7 @@ namespace Tenchu_tool
                 }
 
                 MessageBox.Show("Arquivo Extraido!\nFile extracted!", "AVISO! / Warning!");
-            }
+            }*/
         }
 
         #endregion
@@ -1467,7 +1471,7 @@ namespace Tenchu_tool
         private void button13_Click(object sender, EventArgs e)
         {
             //Insersor 
-
+            MessageBox.Show("Ainda não implementado");
         }
 
         #endregion
@@ -1601,7 +1605,7 @@ namespace Tenchu_tool
                                     bw.Write((byte)0);
                                 }*/
 
-            var txt = File.ReadLines(Path.Combine(Path.GetDirectoryName(file), Path.GetFileName(file)) + ".txt");
+                                var txt = File.ReadLines(Path.Combine(Path.GetDirectoryName(file), Path.GetFileName(file)) + ".txt");
 
 
                             }
@@ -1626,13 +1630,19 @@ namespace Tenchu_tool
 
         #region Texturas Tenchu PS2
 
+        #region Visualizador de Texturas Tenchu PS2
+
         private Dictionary<string, List<Bitmap>> binImages = new Dictionary<string, List<Bitmap>>();
 
         private void button17_Click(object sender, EventArgs e)
         {
-            Form2 form2 = new Form2();            
-            form2.Show();
+            this.Hide(); //Esconde o formulário principal
+            Form2 form2 = new Form2(); //Define form2 como o formulário de visualização e extração gráfica do PS2
+            form2.FormClosed += (s, args) => this.Show(); //Fecha o programa se fechar o formulário
+            form2.Show(); //Mostra o formulário
         }
+
+        #endregion
 
         #region Extrair todas as texturas de uma vez PS2
 
@@ -1643,13 +1653,6 @@ namespace Tenchu_tool
             openFileDialog1.Filter = "Arquivo Tenchu|*.bin|All files (*.*)|*.*";
             openFileDialog1.Title = "Select a Tenchu File...";
             openFileDialog1.Multiselect = true;
-
-            if (openFileDialog1.ShowDialog() == DialogResult.OK)
-            {
-                Form2 form2 = new Form2();
-                form2.ReceberArquivosBin(openFileDialog1.FileNames);
-                form2.Show();
-            }
 
             if (openFileDialog1.ShowDialog() == DialogResult.OK)
             {
