@@ -37,6 +37,7 @@
             this.comboBoxBinFiles = new System.Windows.Forms.ComboBox();
             this.btnZoomIn = new System.Windows.Forms.Button();
             this.btnZoomOut = new System.Windows.Forms.Button();
+            this.zoomLevel = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxDisplay)).BeginInit();
             this.SuspendLayout();
             // 
@@ -119,12 +120,22 @@
             this.btnZoomOut.UseVisualStyleBackColor = true;
             this.btnZoomOut.Click += new System.EventHandler(this.btnZoomOut_Click);
             // 
+            // zoomLevel
+            // 
+            this.zoomLevel.AutoSize = true;
+            this.zoomLevel.Location = new System.Drawing.Point(114, 152);
+            this.zoomLevel.Name = "zoomLevel";
+            this.zoomLevel.Size = new System.Drawing.Size(34, 13);
+            this.zoomLevel.TabIndex = 13;
+            this.zoomLevel.Text = "Zoom";
+            // 
             // TIMT
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.SystemColors.Control;
             this.ClientSize = new System.Drawing.Size(860, 582);
+            this.Controls.Add(this.zoomLevel);
             this.Controls.Add(this.btnZoomOut);
             this.Controls.Add(this.btnZoomIn);
             this.Controls.Add(this.label2);
@@ -152,5 +163,6 @@
         private System.Windows.Forms.ComboBox comboBoxBinFiles;
         private System.Windows.Forms.Button btnZoomIn;
         private System.Windows.Forms.Button btnZoomOut;
+        private System.Windows.Forms.Label zoomLevel;
     }
 }

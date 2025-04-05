@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace Tenchu_tool
@@ -27,9 +29,16 @@ namespace Tenchu_tool
             comboBoxBinFiles.SelectedIndexChanged += comboBoxBinFiles_SelectedIndexChanged;
             comboBoxImages.SelectedIndexChanged += comboBoxImages_SelectedIndexChanged;
 
-            // Configuração inicial
+            // Configuração inicial do PictureBox
             pictureBoxDisplay.SizeMode = PictureBoxSizeMode.Zoom;
             pictureBoxDisplay.Image = null;
+
+            // Configura o evento de scroll para zoom com a roda do mouse
+            pictureBoxDisplay.MouseWheel += pictureBoxDisplay_MouseWheel;
+            pictureBoxDisplay.Focus();
+
+            // Atualiza o label de zoom inicial
+            AtualizarLabelZoom();
         }
 
         // Evento do botão para abrir arquivos TIM ou ARC
@@ -55,7 +64,7 @@ namespace Tenchu_tool
 
             foreach (var arquivo in arquivos)
             {
-                // Verifica se o arquivo contém dados TIM realizando uma busca completa no arquivo
+                // Verifica se o arquivo contém dados TIM realizando uma busca completa
                 if (ArquivoContemTIM(arquivo))
                 {
                     string nomeArquivo = Path.GetFileName(arquivo);
@@ -70,7 +79,7 @@ namespace Tenchu_tool
                 comboBoxBinFiles.Text = "Nenhum arquivo TIM encontrado.";
         }
 
-        // Verifica se o arquivo contém pelo menos um TIM válido, buscando em todo o arquivo
+        // Verifica se o arquivo contém pelo menos um TIM válido
         private bool ArquivoContemTIM(string caminhoArquivo)
         {
             try
@@ -94,7 +103,6 @@ namespace Tenchu_tool
                                 if (bpp >= 0 && bpp <= 3)
                                     return true;
                             }
-                            // Avança 1 byte além dos 4 já lidos
                             br.BaseStream.Seek(posHeader + 5, SeekOrigin.Begin);
                         }
                     }
@@ -110,7 +118,7 @@ namespace Tenchu_tool
             PrepararListaDeImagensTIM();
         }
 
-        // Lê o arquivo selecionado e percorre todo o seu conteúdo para procurar blocos TIM válidos
+        // Lê o arquivo selecionado e percorre seu conteúdo em busca de blocos TIM válidos
         private void PrepararListaDeImagensTIM()
         {
             if (comboBoxBinFiles.SelectedItem == null)
@@ -127,8 +135,7 @@ namespace Tenchu_tool
             using (FileStream stream = File.Open(arquivoSelecionado, FileMode.Open, FileAccess.Read))
             using (BinaryReader br = new BinaryReader(stream))
             {
-                // Percorre todo o arquivo
-                while (br.BaseStream.Position < br.BaseStream.Length - 4)
+                while (br.BaseStream.Position <= br.BaseStream.Length - 4)
                 {
                     long pos = br.BaseStream.Position;
                     int header = br.ReadInt32();
@@ -142,16 +149,15 @@ namespace Tenchu_tool
                             continue;
                         }
                         enderecoTIMList.Add((int)pos);
-                        Console.WriteLine($"TIM encontrado em {pos:X} com flag: 0x{flag:X}");
 
                         bool hasClut = (flag & 0x8) != 0;
                         if (hasClut)
                         {
                             int clutBlockSize = br.ReadInt32();
-                            br.BaseStream.Seek(clutBlockSize, SeekOrigin.Current);
+                            br.BaseStream.Seek(clutBlockSize - 4, SeekOrigin.Current);
                         }
                         int imageBlockSize = br.ReadInt32();
-                        br.BaseStream.Seek(imageBlockSize, SeekOrigin.Current);
+                        br.BaseStream.Seek(imageBlockSize - 4, SeekOrigin.Current);
                     }
                     else
                     {
@@ -180,7 +186,7 @@ namespace Tenchu_tool
             ProcessarTIM(indice);
         }
 
-        // Processa a textura TIM e converte para um Bitmap
+        // Processa a textura TIM e converte para um Bitmap usando LockBits para otimização
         private void ProcessarTIM(int indice)
         {
             if (indice < 0 || indice >= enderecoTIMList.Count)
@@ -197,7 +203,7 @@ namespace Tenchu_tool
                     return;
 
                 int flag = br.ReadInt32();
-                int bpp = flag & 7; // 0 = 4bpp, 1 = 8bpp, 2 = 16bpp, 3 = 24bpp
+                int bpp = flag & 0x7; // 0 = 4bpp, 1 = 8bpp, 2 = 16bpp, 3 = 24bpp
                 bool hasClut = (flag & 0x8) != 0;
                 Color[] palette = null;
 
@@ -222,7 +228,7 @@ namespace Tenchu_tool
                 int imageBlockSize = br.ReadInt32();
                 short imageX = br.ReadInt16();
                 short imageY = br.ReadInt16();
-                short imageWidthWord = br.ReadInt16(); // largura em "words" (depende do bpp)
+                short imageWidthWord = br.ReadInt16(); // largura em "words"
                 short imageHeight = br.ReadInt16();
                 int imageWidth = 0;
 
@@ -233,56 +239,57 @@ namespace Tenchu_tool
                     imageWidth = imageWidthWord * 2;
                 else if (bpp == 2) // 16bpp: cada word é 1 pixel
                     imageWidth = imageWidthWord;
-                else if (bpp == 3) // 24bpp: assumimos que imageWidthWord já representa o número de pixels
+                else if (bpp == 3) // 24bpp: assume-se que imageWidthWord já representa o número de pixels
                     imageWidth = imageWidthWord;
 
                 byte[] imageData = br.ReadBytes(imageBlockSize - 12);
 
-                // Cria o Bitmap com as dimensões determinadas
-                imagem = new Bitmap(imageWidth, imageHeight, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                // Cria um buffer para os pixels no formato ARGB (32 bits)
+                int[] pixelBuffer = new int[imageWidth * imageHeight];
+                int dataIndex = 0;
 
-                if (bpp == 0 || bpp == 1)
+                if (bpp == 0)
                 {
-                    // Imagem paletizada
-                    int dataIndex = 0;
+                    // 4bpp: cada byte contém dois pixels
                     for (int y = 0; y < imageHeight; y++)
                     {
-                        for (int x = 0; x < imageWidth;)
+                        int x = 0;
+                        while (x < imageWidth && dataIndex < imageData.Length)
                         {
-                            if (bpp == 0)
+                            byte valor = imageData[dataIndex++];
+                            int indice1 = valor & 0x0F;
+                            int indice2 = (valor >> 4) & 0x0F;
+                            pixelBuffer[y * imageWidth + x] = (palette != null && indice1 < palette.Length)
+                                ? palette[indice1].ToArgb()
+                                : Color.Magenta.ToArgb();
+                            x++;
+                            if (x < imageWidth)
                             {
-                                // 4bpp: cada byte contém dois pixels
-                                byte valor = imageData[dataIndex++];
-                                int indice1 = valor & 0x0F;
-                                int indice2 = (valor >> 4) & 0x0F;
-                                if (x < imageWidth)
-                                {
-                                    Color c1 = (palette != null && indice1 < palette.Length) ? palette[indice1] : Color.Magenta;
-                                    imagem.SetPixel(x, y, c1);
-                                    x++;
-                                }
-                                if (x < imageWidth)
-                                {
-                                    Color c2 = (palette != null && indice2 < palette.Length) ? palette[indice2] : Color.Magenta;
-                                    imagem.SetPixel(x, y, c2);
-                                    x++;
-                                }
-                            }
-                            else if (bpp == 1)
-                            {
-                                // 8bpp: cada byte é um índice direto na paleta
-                                byte indicePixel = imageData[dataIndex++];
-                                Color c = (palette != null && indicePixel < palette.Length) ? palette[indicePixel] : Color.Magenta;
-                                imagem.SetPixel(x, y, c);
+                                pixelBuffer[y * imageWidth + x] = (palette != null && indice2 < palette.Length)
+                                    ? palette[indice2].ToArgb()
+                                    : Color.Magenta.ToArgb();
                                 x++;
                             }
+                        }
+                    }
+                }
+                else if (bpp == 1)
+                {
+                    // 8bpp: cada byte é um índice direto na paleta
+                    for (int y = 0; y < imageHeight; y++)
+                    {
+                        for (int x = 0; x < imageWidth; x++)
+                        {
+                            byte indicePixel = imageData[dataIndex++];
+                            pixelBuffer[y * imageWidth + x] = (palette != null && indicePixel < palette.Length)
+                                ? palette[indicePixel].ToArgb()
+                                : Color.Magenta.ToArgb();
                         }
                     }
                 }
                 else if (bpp == 2)
                 {
                     // 16bpp: cada pixel ocupa 2 bytes (cor direta no formato PSX)
-                    int dataIndex = 0;
                     for (int y = 0; y < imageHeight; y++)
                     {
                         for (int x = 0; x < imageWidth; x++)
@@ -291,8 +298,7 @@ namespace Tenchu_tool
                             {
                                 ushort pixelData = BitConverter.ToUInt16(imageData, dataIndex);
                                 dataIndex += 2;
-                                Color c = ConverterCorPSX(pixelData);
-                                imagem.SetPixel(x, y, c);
+                                pixelBuffer[y * imageWidth + x] = ConverterCorPSX(pixelData).ToArgb();
                             }
                         }
                     }
@@ -300,7 +306,6 @@ namespace Tenchu_tool
                 else if (bpp == 3)
                 {
                     // 24bpp: cada pixel ocupa 3 bytes (ordem: Blue, Green, Red)
-                    int dataIndex = 0;
                     for (int y = 0; y < imageHeight; y++)
                     {
                         for (int x = 0; x < imageWidth; x++)
@@ -310,22 +315,28 @@ namespace Tenchu_tool
                                 byte blue = imageData[dataIndex++];
                                 byte green = imageData[dataIndex++];
                                 byte red = imageData[dataIndex++];
-                                Color c = Color.FromArgb(255, red, green, blue);
-                                imagem.SetPixel(x, y, c);
+                                pixelBuffer[y * imageWidth + x] = Color.FromArgb(255, red, green, blue).ToArgb();
                             }
                         }
                     }
                 }
-            }
 
-            // Armazena a imagem original para controle de zoom
-            originalImage = imagem;
-            // Reseta o fator de zoom para 1.0 (tamanho original)
-            zoomFactor = 1.0;
-            ApplyZoom();
+                // Cria o Bitmap e preenche-o utilizando LockBits para melhor performance
+                imagem = new Bitmap(imageWidth, imageHeight, PixelFormat.Format32bppArgb);
+                BitmapData bmpData = imagem.LockBits(new Rectangle(0, 0, imagem.Width, imagem.Height),
+                                                       ImageLockMode.WriteOnly,
+                                                       imagem.PixelFormat);
+                Marshal.Copy(pixelBuffer, 0, bmpData.Scan0, pixelBuffer.Length);
+                imagem.UnlockBits(bmpData);
+
+                // Armazena a imagem original para controle de zoom
+                originalImage = imagem;
+                zoomFactor = 1.0;
+                ApplyZoom();
+            }
         }
 
-        // Aplica o zoom com base no zoomFactor
+        // Aplica o zoom com base no zoomFactor e atualiza o label de zoom
         private void ApplyZoom()
         {
             if (originalImage == null)
@@ -344,6 +355,15 @@ namespace Tenchu_tool
             pictureBoxDisplay.Image = zoomedImage;
             pictureBoxDisplay.SizeMode = PictureBoxSizeMode.Normal;
             pictureBoxDisplay.Refresh();
+
+            AtualizarLabelZoom();
+        }
+
+        // Atualiza o label para exibir a porcentagem de zoom
+        private void AtualizarLabelZoom()
+        {
+            int porcentagem = (int)Math.Round(zoomFactor * 100);
+            zoomLevel.Text = $"Zoom {porcentagem}%";
         }
 
         // Evento do botão Zoom In (aumenta o zoom em 50%)
@@ -353,11 +373,9 @@ namespace Tenchu_tool
             ApplyZoom();
         }
 
-        // Evento do botão Zoom Out (diminui o zoom em 50%)
-        // Permite diminuir apenas uma vez quando o zoom estiver em 100%
+        // Evento do botão Zoom Out (diminui o zoom em 50%, se possível)
         private void btnZoomOut_Click(object sender, EventArgs e)
         {
-            // Se o zoom já estiver abaixo de 1.0, impede nova diminuição
             if (zoomFactor < 1.0)
             {
                 MessageBox.Show("Não é possível diminuir mais o zoom!");
@@ -367,14 +385,26 @@ namespace Tenchu_tool
             ApplyZoom();
         }
 
-        // Converte um valor de 16 bits (15-bit PSX) para um objeto Color
+        // Evento de zoom utilizando a roda do mouse (Ctrl + Scroll), agora em 50% de incremento
+        private void pictureBoxDisplay_MouseWheel(object sender, MouseEventArgs e)
+        {
+            if (Control.ModifierKeys == Keys.Control)
+            {
+                if (e.Delta > 0)
+                    zoomFactor *= 1.5;
+                else
+                    zoomFactor *= 0.5;
+                ApplyZoom();
+            }
+        }
+
+        // Converte um valor de 16 bits (15-bit PSX) para um objeto Color, ignorando o bit de alpha
         private Color ConverterCorPSX(ushort corData)
         {
             int r = (corData & 0x1F) << 3;
             int g = ((corData >> 5) & 0x1F) << 3;
             int b = ((corData >> 10) & 0x1F) << 3;
-            int a = (corData & 0x8000) != 0 ? 0 : 255;
-            return Color.FromArgb(a, r, g, b);
+            return Color.FromArgb(255, r, g, b);
         }
     }
 }

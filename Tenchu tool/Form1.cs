@@ -18,8 +18,8 @@ namespace Tenchu_tool
         public Form1()
         {
             InitializeComponent();
-            //TIMT timtForm = new TIMT();
-            //timtForm.Show();
+            TIMT timtForm = new TIMT();
+            timtForm.Show();
         }
 
         #region Tradução dos botões
