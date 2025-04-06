@@ -18,8 +18,6 @@ namespace Tenchu_tool
         public Form1()
         {
             InitializeComponent();
-            TIMT timtForm = new TIMT();
-            timtForm.Show();
         }
 
         #region Tradução dos botões
@@ -610,6 +608,17 @@ namespace Tenchu_tool
 
         #endregion
 
+        #region Visualizador de TIM
+        private void timbutton_Click(object sender, EventArgs e)
+        {
+            this.Hide(); //Esconde o formulário principal
+            TIMT timtForm = new TIMT();
+            timtForm.FormClosed += (s, args) => this.Show(); //Fecha o programa se fechar o formulário
+            timtForm.Show(); //Mostra o formulário
+        }
+
+        #endregion
+
         #endregion
 
         #region Tenchu 2 PS1
@@ -732,6 +741,8 @@ namespace Tenchu_tool
         #endregion
 
         #endregion
+
+        #region Tenchu PS2
 
         #region Extrator Texto PS2
         private void button9_Click(object sender, EventArgs e)
@@ -1277,6 +1288,191 @@ namespace Tenchu_tool
         }
         #endregion
 
+        #region Texturas Tenchu PS2
+
+        #region Visualizador de Texturas Tenchu PS2
+
+        private Dictionary<string, List<Bitmap>> binImages = new Dictionary<string, List<Bitmap>>();
+
+        private void button17_Click(object sender, EventArgs e)
+        {
+            this.Hide(); //Esconde o formulário principal
+            Form2 form2 = new Form2(); //Define form2 como o formulário de visualização e extração gráfica do PS2
+            form2.FormClosed += (s, args) => this.Show(); //Fecha o programa se fechar o formulário
+            form2.Show(); //Mostra o formulário
+        }
+
+        #endregion
+
+        #region Extrair todas as texturas de uma vez PS2
+
+        private async void button18_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog openFileDialog1 = new OpenFileDialog();
+
+            openFileDialog1.Filter = "Arquivo Tenchu|*.bin|All files (*.*)|*.*";
+            openFileDialog1.Title = "Select a Tenchu File...";
+            openFileDialog1.Multiselect = true;
+
+            if (openFileDialog1.ShowDialog() == DialogResult.OK)
+            {
+                await Task.Run(() =>
+                {
+                    foreach (String file in openFileDialog1.FileNames)
+                    {
+                        // Salvar a imagem como PNG
+                        // Gerar nome da pasta com base no nome do arquivo original
+                        string folderName = Path.GetFileNameWithoutExtension(file);
+                        string folderPath = Path.Combine(Path.GetDirectoryName(file), folderName);
+
+                        // Verificar se a pasta existe, se não, criar
+                        if (!Directory.Exists(folderPath))
+                        {
+                            Directory.CreateDirectory(folderPath);
+                        }
+
+                        using (FileStream stream = File.Open(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        using (BinaryReader br = new BinaryReader(stream))
+                        {
+                            // Pega o tamanho do arquivo
+                            long tamanhoarquivo = new FileInfo(file).Length;
+
+                            // Vai pro offset 0
+                            br.BaseStream.Seek(0, SeekOrigin.Begin);
+
+                            int totaldeK2Tx = 0;
+                            List<int> enderecoK2TxList = new List<int>();
+
+                            // Laço que conta o número de arquivos K2Tx dentro do contêiner e guarda os endereços
+                            for (int a = 0; a < tamanhoarquivo / 4 - 200; a++)
+                            {
+                                int K2Tx = br.ReadInt32();
+
+                                if (K2Tx == 0x7854324B) // K2Tx
+                                {
+                                    totaldeK2Tx++;
+                                    enderecoK2TxList.Add(a * 4);
+                                }
+                            }
+
+                            // Converte a lista de endereços para um array
+                            int[] enderecoK2Tx = enderecoK2TxList.ToArray();
+
+                            for (int i = 0; i < totaldeK2Tx; i++)
+                            {
+                                br.BaseStream.Seek(enderecoK2Tx[i], SeekOrigin.Begin);
+
+                                int magic = br.ReadInt32();
+
+                                int offsetdaimagem = br.ReadInt32(); // Le o endereço de onde começa a primeira textura
+                                int offsetdapaleta = br.ReadInt32(); //Le o offset da paleta
+                                int tamanhoimagem = br.ReadInt32(); //Le o tamanho do arquivo
+                                ushort largura = br.ReadUInt16(); //Le a largura da imagem
+                                ushort altura = br.ReadUInt16(); //Le a altura da imagem
+                                ushort desconhecido1 = br.ReadUInt16();
+                                ushort desconhecido2 = br.ReadUInt16();
+                                ushort desconhecido3 = br.ReadUInt16();
+                                ushort desconhecido4 = br.ReadUInt16(); //Sempre é 05 suspeito que seja a informação de 8bpp
+                                ushort desconhecido5 = br.ReadUInt16();
+                                ushort id = br.ReadUInt16(); //Me parece ser um ID
+
+                                // Ler a imagem
+                                br.BaseStream.Seek(offsetdaimagem + enderecoK2Tx[i], SeekOrigin.Begin);
+                                byte[] imagemBytes = br.ReadBytes(tamanhoimagem - offsetdaimagem);
+
+                                // Ler a paleta
+                                br.BaseStream.Seek(offsetdapaleta + enderecoK2Tx[i], SeekOrigin.Begin);
+                                byte[] paletaBytes = br.ReadBytes(tamanhoimagem - offsetdapaleta);
+
+
+                                if (offsetdaimagem == 0x80)
+                                {
+                                    br.BaseStream.Seek(enderecoK2Tx[i] + 0x20, SeekOrigin.Begin);
+
+                                    int verificador1 = br.ReadInt32();
+                                    int verificador2 = br.ReadInt32();
+
+                                    if ((verificador1 == 33554432 && verificador2 == 512) || (verificador1 == 16777216 && verificador2 == 256) || (verificador1 == 8388608 && verificador2 == 128) || (verificador1 == 4194304 && verificador2 == 64) || (verificador1 == 33554432 && verificador2 == 128))
+                                    {
+                                        // "UnSwizzle" para 8bpp
+                                        byte[] unswizzled = new byte[largura * altura];
+                                        for (int y = 0; y < altura; y++)
+                                        {
+                                            for (int x = 0; x < largura; x++)
+                                            {
+                                                int block_location = (y & (~0xf)) * largura + (x & (~0xf)) * 2;
+                                                int swap_selector = (((y + 2) >> 2) & 0x1) * 4;
+                                                int posY = (((y & (~3)) >> 1) + (y & 1)) & 0x7;
+                                                int column_location = posY * largura * 2 + ((x + swap_selector) & 0x7) * 4;
+                                                int byte_num = ((y >> 1) & 1) + ((x >> 2) & 2);
+                                                int swizzleid = block_location + column_location + byte_num;
+
+                                                unswizzled[y * largura + x] = imagemBytes[swizzleid];
+                                            }
+                                        }
+                                        imagemBytes = unswizzled;
+                                    }
+                                }
+
+                                // Processo de "unswizzle" da paleta
+                                byte[] unswizzledPalette = new byte[1024];
+                                for (int p = 0; p < 256; p++)
+                                {
+                                    int pos = ((p & 231) + ((p & 8) << 1) + ((p & 16) >> 1));
+                                    if (p * 4 + 4 <= paletaBytes.Length && pos * 4 + 4 <= unswizzledPalette.Length)
+                                    {
+                                        Buffer.BlockCopy(paletaBytes, p * 4, unswizzledPalette, pos * 4, 4);
+                                    }
+                                }
+
+                                // Criar um bitmap para a imagem
+                                Bitmap bitmap = new Bitmap(largura, altura, PixelFormat.Format32bppArgb);
+
+                                // Preencher o bitmap com os dados lidos
+                                for (int y = 0; y < altura; y++)
+                                {
+                                    for (int x = 0; x < largura; x++)
+                                    {
+                                        int pixelIndex = y * largura + x;
+                                        if (pixelIndex < imagemBytes.Length)
+                                        {
+                                            byte colorIndex = imagemBytes[pixelIndex];
+                                            int paletteOffset = colorIndex * 4;
+                                            if (paletteOffset + 4 <= unswizzledPalette.Length)
+                                            {
+                                                byte r = unswizzledPalette[paletteOffset];
+                                                byte g = unswizzledPalette[paletteOffset + 1];
+                                                byte b = unswizzledPalette[paletteOffset + 2];
+                                                byte a = unswizzledPalette[paletteOffset + 3];
+                                                byte adjustedAlpha = (byte)Math.Min(a * 2, 255); // Com ajuste do Alpha
+
+                                                Color color = Color.FromArgb(adjustedAlpha, r, g, b);
+                                                bitmap.SetPixel(x, y, color);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Gerar nome do arquivo com base no nome original e offset
+                                string outputFileName = $"{folderName}_{enderecoK2Tx[i]}";
+                                string outputFilePath = Path.Combine(folderPath, outputFileName + ".png");
+
+                                // Salvar a imagem como PNG
+                                bitmap.Save(outputFilePath, ImageFormat.Png);
+                            }
+                        }
+                    }
+                });
+                MessageBox.Show("Terminado!");
+            }
+        }
+
+        #endregion
+
+        #endregion
+
+        #endregion
+
         #region Dark Secrets
         private void button11_Click(object sender, EventArgs e)
         {
@@ -1627,189 +1823,5 @@ namespace Tenchu_tool
         #endregion
 
         #endregion
-
-        #region Texturas Tenchu PS2
-
-        #region Visualizador de Texturas Tenchu PS2
-
-        private Dictionary<string, List<Bitmap>> binImages = new Dictionary<string, List<Bitmap>>();
-
-        private void button17_Click(object sender, EventArgs e)
-        {
-            this.Hide(); //Esconde o formulário principal
-            Form2 form2 = new Form2(); //Define form2 como o formulário de visualização e extração gráfica do PS2
-            form2.FormClosed += (s, args) => this.Show(); //Fecha o programa se fechar o formulário
-            form2.Show(); //Mostra o formulário
-        }
-
-        #endregion
-
-        #region Extrair todas as texturas de uma vez PS2
-
-        private async void button18_Click(object sender, EventArgs e)
-        {
-            OpenFileDialog openFileDialog1 = new OpenFileDialog();
-
-            openFileDialog1.Filter = "Arquivo Tenchu|*.bin|All files (*.*)|*.*";
-            openFileDialog1.Title = "Select a Tenchu File...";
-            openFileDialog1.Multiselect = true;
-
-            if (openFileDialog1.ShowDialog() == DialogResult.OK)
-            {
-                await Task.Run(() =>
-                {
-                    foreach (String file in openFileDialog1.FileNames)
-                    {
-                        // Salvar a imagem como PNG
-                        // Gerar nome da pasta com base no nome do arquivo original
-                        string folderName = Path.GetFileNameWithoutExtension(file);
-                        string folderPath = Path.Combine(Path.GetDirectoryName(file), folderName);
-
-                        // Verificar se a pasta existe, se não, criar
-                        if (!Directory.Exists(folderPath))
-                        {
-                            Directory.CreateDirectory(folderPath);
-                        }
-
-                        using (FileStream stream = File.Open(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                        using (BinaryReader br = new BinaryReader(stream))
-                        {
-                            // Pega o tamanho do arquivo
-                            long tamanhoarquivo = new FileInfo(file).Length;
-
-                            // Vai pro offset 0
-                            br.BaseStream.Seek(0, SeekOrigin.Begin);
-
-                            int totaldeK2Tx = 0;
-                            List<int> enderecoK2TxList = new List<int>();
-
-                            // Laço que conta o número de arquivos K2Tx dentro do contêiner e guarda os endereços
-                            for (int a = 0; a < tamanhoarquivo / 4 - 200; a++)
-                            {
-                                int K2Tx = br.ReadInt32();
-
-                                if (K2Tx == 0x7854324B) // K2Tx
-                                {
-                                    totaldeK2Tx++;
-                                    enderecoK2TxList.Add(a * 4);
-                                }
-                            }
-
-                            // Converte a lista de endereços para um array
-                            int[] enderecoK2Tx = enderecoK2TxList.ToArray();
-
-                            for (int i = 0; i < totaldeK2Tx; i++)
-                            {
-                                br.BaseStream.Seek(enderecoK2Tx[i], SeekOrigin.Begin);
-
-                                int magic = br.ReadInt32();
-
-                                int offsetdaimagem = br.ReadInt32(); // Le o endereço de onde começa a primeira textura
-                                int offsetdapaleta = br.ReadInt32(); //Le o offset da paleta
-                                int tamanhoimagem = br.ReadInt32(); //Le o tamanho do arquivo
-                                ushort largura = br.ReadUInt16(); //Le a largura da imagem
-                                ushort altura = br.ReadUInt16(); //Le a altura da imagem
-                                ushort desconhecido1 = br.ReadUInt16();
-                                ushort desconhecido2 = br.ReadUInt16();
-                                ushort desconhecido3 = br.ReadUInt16();
-                                ushort desconhecido4 = br.ReadUInt16(); //Sempre é 05 suspeito que seja a informação de 8bpp
-                                ushort desconhecido5 = br.ReadUInt16();
-                                ushort id = br.ReadUInt16(); //Me parece ser um ID
-
-                                // Ler a imagem
-                                br.BaseStream.Seek(offsetdaimagem + enderecoK2Tx[i], SeekOrigin.Begin);
-                                byte[] imagemBytes = br.ReadBytes(tamanhoimagem - offsetdaimagem);
-
-                                // Ler a paleta
-                                br.BaseStream.Seek(offsetdapaleta + enderecoK2Tx[i], SeekOrigin.Begin);
-                                byte[] paletaBytes = br.ReadBytes(tamanhoimagem - offsetdapaleta);
-
-
-                                if (offsetdaimagem == 0x80)
-                                {
-                                    br.BaseStream.Seek(enderecoK2Tx[i] + 0x20, SeekOrigin.Begin);
-
-                                    int verificador1 = br.ReadInt32();
-                                    int verificador2 = br.ReadInt32();
-
-                                    if ((verificador1 == 33554432 && verificador2 == 512) || (verificador1 == 16777216 && verificador2 == 256) || (verificador1 == 8388608 && verificador2 == 128) || (verificador1 == 4194304 && verificador2 == 64) || (verificador1 == 33554432 && verificador2 == 128))
-                                    {
-                                        // "UnSwizzle" para 8bpp
-                                        byte[] unswizzled = new byte[largura * altura];
-                                        for (int y = 0; y < altura; y++)
-                                        {
-                                            for (int x = 0; x < largura; x++)
-                                            {
-                                                int block_location = (y & (~0xf)) * largura + (x & (~0xf)) * 2;
-                                                int swap_selector = (((y + 2) >> 2) & 0x1) * 4;
-                                                int posY = (((y & (~3)) >> 1) + (y & 1)) & 0x7;
-                                                int column_location = posY * largura * 2 + ((x + swap_selector) & 0x7) * 4;
-                                                int byte_num = ((y >> 1) & 1) + ((x >> 2) & 2);
-                                                int swizzleid = block_location + column_location + byte_num;
-
-                                                unswizzled[y * largura + x] = imagemBytes[swizzleid];
-                                            }
-                                        }
-                                        imagemBytes = unswizzled;
-                                    }
-                                }
-
-                                // Processo de "unswizzle" da paleta
-                                byte[] unswizzledPalette = new byte[1024];
-                                for (int p = 0; p < 256; p++)
-                                {
-                                    int pos = ((p & 231) + ((p & 8) << 1) + ((p & 16) >> 1));
-                                    if (p * 4 + 4 <= paletaBytes.Length && pos * 4 + 4 <= unswizzledPalette.Length)
-                                    {
-                                        Buffer.BlockCopy(paletaBytes, p * 4, unswizzledPalette, pos * 4, 4);
-                                    }
-                                }
-
-                                // Criar um bitmap para a imagem
-                                Bitmap bitmap = new Bitmap(largura, altura, PixelFormat.Format32bppArgb);
-
-                                // Preencher o bitmap com os dados lidos
-                                for (int y = 0; y < altura; y++)
-                                {
-                                    for (int x = 0; x < largura; x++)
-                                    {
-                                        int pixelIndex = y * largura + x;
-                                        if (pixelIndex < imagemBytes.Length)
-                                        {
-                                            byte colorIndex = imagemBytes[pixelIndex];
-                                            int paletteOffset = colorIndex * 4;
-                                            if (paletteOffset + 4 <= unswizzledPalette.Length)
-                                            {
-                                                byte r = unswizzledPalette[paletteOffset];
-                                                byte g = unswizzledPalette[paletteOffset + 1];
-                                                byte b = unswizzledPalette[paletteOffset + 2];
-                                                byte a = unswizzledPalette[paletteOffset + 3];
-                                                byte adjustedAlpha = (byte)Math.Min(a * 2, 255); // Com ajuste do Alpha
-
-                                                Color color = Color.FromArgb(adjustedAlpha, r, g, b);
-                                                bitmap.SetPixel(x, y, color);
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Gerar nome do arquivo com base no nome original e offset
-                                string outputFileName = $"{folderName}_{enderecoK2Tx[i]}";
-                                string outputFilePath = Path.Combine(folderPath, outputFileName + ".png");
-
-                                // Salvar a imagem como PNG
-                                bitmap.Save(outputFilePath, ImageFormat.Png);
-                            }
-                        }
-                    }
-                });
-                MessageBox.Show("Terminado!");
-            }
-        }
-        #endregion
-
-        #endregion
-
-
     }
 }

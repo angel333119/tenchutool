@@ -102,7 +102,7 @@
             // 
             // btnZoomIn
             // 
-            this.btnZoomIn.Location = new System.Drawing.Point(31, 201);
+            this.btnZoomIn.Location = new System.Drawing.Point(33, 147);
             this.btnZoomIn.Name = "btnZoomIn";
             this.btnZoomIn.Size = new System.Drawing.Size(75, 23);
             this.btnZoomIn.TabIndex = 11;
@@ -112,7 +112,7 @@
             // 
             // btnZoomOut
             // 
-            this.btnZoomOut.Location = new System.Drawing.Point(158, 201);
+            this.btnZoomOut.Location = new System.Drawing.Point(33, 176);
             this.btnZoomOut.Name = "btnZoomOut";
             this.btnZoomOut.Size = new System.Drawing.Size(75, 23);
             this.btnZoomOut.TabIndex = 12;
@@ -123,7 +123,7 @@
             // zoomLevel
             // 
             this.zoomLevel.AutoSize = true;
-            this.zoomLevel.Location = new System.Drawing.Point(114, 152);
+            this.zoomLevel.Location = new System.Drawing.Point(124, 167);
             this.zoomLevel.Name = "zoomLevel";
             this.zoomLevel.Size = new System.Drawing.Size(34, 13);
             this.zoomLevel.TabIndex = 13;
