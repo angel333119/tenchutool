@@ -1,0 +1,14 @@
+D:\333\source\repos\Tenchu tool\bin\Debug\Tenchu tool.exe.config
+D:\333\source\repos\Tenchu tool\bin\Debug\Tenchu tool.exe
+D:\333\source\repos\Tenchu tool\bin\Debug\Tenchu tool.pdb
+D:\333\source\repos\Tenchu tool\obj\Debug\Tenchu tool.csproj.AssemblyReference.cache
+D:\333\source\repos\Tenchu tool\obj\Debug\Tenchu_tool.Form1.resources
+D:\333\source\repos\Tenchu tool\obj\Debug\Tenchu_tool.Properties.Resources.resources
+D:\333\source\repos\Tenchu tool\obj\Debug\Tenchu tool.csproj.GenerateResource.cache
+D:\333\source\repos\Tenchu tool\obj\Debug\Tenchu tool.csproj.CoreCompileInputs.cache
+D:\333\source\repos\Tenchu tool\obj\Debug\Tenchu tool.exe
+D:\333\source\repos\Tenchu tool\obj\Debug\Tenchu tool.pdb
+D:\333\source\repos\Tenchu tool\bin\Debug\Ude.NetStandard.dll
+D:\333\source\repos\Tenchu tool\obj\Debug\Tenchu t.0C044AFD.Up2Date
+D:\333\source\repos\Tenchu tool\obj\Debug\Tenchu_tool.Form2.resources
+D:\333\source\repos\Tenchu tool\obj\Debug\Tenchu_tool.TIMT.resources
